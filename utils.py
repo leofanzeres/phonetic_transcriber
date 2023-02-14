@@ -1,11 +1,16 @@
 import csv
 import random
+import values
+import torch
 
-def load_dictionary(dict_tsv_file, delimiter, to_list=False, reverse=False):
+def load_dictionary(dict_tsv_file, delimiter, to_list=False, reverse=False, to_int = False):
     reader = csv.reader(open(dict_tsv_file, mode='r'), delimiter=delimiter)
     if to_list:
         dictionary = []
         for row in reader:
+            if to_int:
+                if row[0].isdigit(): row[0] = int(row[0])
+                if row[1].isdigit(): row[1] = int(row[1])
             if reverse:
                 dictionary.append([row[1],row[0]])
             else:
@@ -13,6 +18,9 @@ def load_dictionary(dict_tsv_file, delimiter, to_list=False, reverse=False):
     else:
         dictionary = {}
         for row in reader:
+            if to_int:
+                if row[0].isdigit(): row[0] = int(row[0])
+                if row[1].isdigit(): row[1] = int(row[1])
             if reverse:
                 dictionary[row[1]] = row[0]
             else:
@@ -46,6 +54,31 @@ def split_data(dictionary, split):
 
     return train_dict, val_dict, test_dict
 
+def indexesFromWord(word, letter2index, phoneme2index, letter=True):
+    if letter:
+        dim = len(letter2index)
+        indexes = []
+        for letter in word:
+            index = letter2index[letter]
+            indexes.append(int(index))
+    else:
+        dim = len(phoneme2index)
+        indexes = []
+        for phoneme in word.split(' '):
+            index = phoneme2index[phoneme]
+            indexes.append(int(index))
+    return indexes
+
+def tensorFromWord(word, device, letter2index, phoneme2index, letter=True):
+    indexes = indexesFromWord(word, letter2index, phoneme2index, letter)
+    indexes.append(values.EOW_token)
+    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+    
+def tensorsFromPair(pair, device, letter2index, phoneme2index):
+    input_tensor = tensorFromWord(pair[0], device, letter2index, phoneme2index)
+    target_tensor = tensorFromWord(pair[1], device, letter2index, phoneme2index, False)
+    return (input_tensor, target_tensor)
+
 def generate_indexes(dictionary):
     letters = set()
     phonemes = set()
@@ -60,7 +93,9 @@ def generate_indexes(dictionary):
 
     with open('letters.csv', 'w') as f:
         first = True
-        idx = 0
+        idx = 2
+        f.write('0,SOW\n')
+        f.write('1,EOW\n')
         for line in letters:
             if first:
                 first = False
@@ -71,7 +106,9 @@ def generate_indexes(dictionary):
 
     with open('phonemes.csv', 'w') as f:
         first = True
-        idx = 0
+        idx = 2
+        f.write('0,SOW\n')
+        f.write('1,EOW\n')
         for line in phonemes:
             if first:
                 first = False

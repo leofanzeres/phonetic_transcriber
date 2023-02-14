@@ -4,39 +4,34 @@ from torch import optim
 import torch.nn.functional as F
 from encoderrnn import EncoderRNN
 from decoderrnn import DecoderRNN
-import utils
+import utils as ut
 import time
 import math
 import random
+import values as v
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-n_iterations = 750
+n_iterations = 45000
 l_rate = 0.01
-print_every=50
-split = [6,2,2]
+print_every=3000
 
-dictionary = utils.load_dictionary('pt-br.dic','\t', False)
-shuffled_dict = utils.shuffle_dict(dictionary)
 
-train_dict, val_dict, test_dict = utils.split_data(shuffled_dict, split)
+dictionary = ut.load_dictionary('pt-br.dic','\t', False)
+shuffled_dict = ut.shuffle_dict(dictionary)
 
-train_pairs = utils.get_pairs(train_dict)
-val_pairs = utils.get_pairs(val_dict)
-test_pairs = utils.get_pairs(test_dict)
+train_dict, _, __ = ut.split_data(shuffled_dict, v.split)
 
-SOW_token = 0
-EOW_token = 1
+train_pairs = ut.get_pairs(train_dict)
 
 teacher_forcing_ratio = 0.0
-MAX_LENGTH = 64
 
-letter2index = utils.load_dictionary('letters.csv',',',reverse=True)
-phoneme2index = utils.load_dictionary('phonemes.csv',',',reverse=True)
-index2phoneme = utils.load_dictionary('phonemes.csv',',')
+letter2index = ut.load_dictionary('letters.csv',',',reverse=True)
+phoneme2index = ut.load_dictionary('phonemes.csv',',',reverse=True)
+index2phoneme = ut.load_dictionary('phonemes.csv',',')
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=v.MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -51,11 +46,10 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     accuracy = 0
 
     for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
+        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
-    decoder_input = torch.tensor([[SOW_token]], device=device)
+    decoder_input = torch.tensor([[v.SOW_token]], device=device)
 
     decoder_hidden = encoder_hidden
 
@@ -64,8 +58,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     if use_teacher_forcing:
         # Teacher forcing: Feed the target as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target_tensor[di])
             if decoder_output == target_tensor[di]:
                 accuracy += 1
@@ -74,15 +67,14 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
             loss += criterion(decoder_output, target_tensor[di])
             if topi.squeeze().detach() == target_tensor[di].squeeze().detach():
                 accuracy += 1
-            if decoder_input.item() == EOW_token:
+            if decoder_input.item() == v.EOW_token:
                 break
 
     loss.backward()
@@ -93,7 +85,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return (loss.item() / target_length, accuracy / target_length)
 
 
-def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01, save_models=False):
     start = time.time()
     print('Train set size: ' + str(len(train_pairs)))
     plot_losses = []
@@ -104,7 +96,7 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(random.choice(train_pairs))
+    training_pairs = [ut.tensorsFromPair(random.choice(train_pairs), device, letter2index, phoneme2index)
                       for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
@@ -133,33 +125,14 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
 
+    if save_models:
+        torch.save(encoder.state_dict(), 'models/encoder_rnn.pt')
+        torch.save(decoder.state_dict(), 'models/decoder_rnn.pt')
+
     showPlot(plot_losses)
 
 
-def indexesFromWord(word, letter=True):
-    if letter:
-        dim = len(letter2index)
-        indexes = []
-        for letter in word:
-            index = letter2index[letter]
-            indexes.append(int(index)+2) # Count SOW and EOW
-    else:
-        dim = len(phoneme2index)
-        indexes = []
-        for phoneme in word.split(' '):
-            index = phoneme2index[phoneme]
-            indexes.append(int(index)+2) # Count SOW and EOW
-    return indexes
 
-def tensorFromWord(word,letter=True):
-    indexes = indexesFromWord(word, letter)
-    indexes.append(EOW_token)
-    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
-    
-def tensorsFromPair(pair):
-    input_tensor = tensorFromWord(pair[0])
-    target_tensor = tensorFromWord(pair[1],False)
-    return (input_tensor, target_tensor)
 
 
 import matplotlib.pyplot as plt
@@ -179,8 +152,7 @@ def showPlot(points):
 
 
 
-hidden_size = 256
-encoder1 = EncoderRNN(len(letter2index)+2, hidden_size, device).to(device)
-decoder1 = DecoderRNN(hidden_size, len(phoneme2index)+2, device).to(device)
+encoder1 = EncoderRNN(len(letter2index), v.hidden_size, device).to(device)
+decoder1 = DecoderRNN(v.hidden_size, len(phoneme2index), device).to(device)
 
-trainIters(encoder1, decoder1, n_iters=n_iterations, print_every=print_every, learning_rate=l_rate)
+trainIters(encoder1, decoder1, n_iters=n_iterations, print_every=print_every, learning_rate=l_rate, save_models=True)
