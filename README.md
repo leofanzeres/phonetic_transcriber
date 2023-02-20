@@ -10,5 +10,5 @@ export PYTHONPATH="${PYTHONPATH}:/path/to/package/"
 ```
 
 ### Requirements (tested versions)
-pytest 7.2.1
+pytest 7.2.1  
 torch 1.13.1

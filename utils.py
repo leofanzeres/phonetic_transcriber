@@ -1,5 +1,4 @@
 import csv
-import torch
 
 def load_data(data_file, delimiter, to_list=False, reverse=False, to_int = False):
     reader = csv.reader(open(data_file, mode='r'), delimiter=delimiter)
