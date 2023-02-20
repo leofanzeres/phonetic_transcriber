@@ -1,5 +1,9 @@
-split = [6,2,2]
-SOW_token = 0
-EOW_token = 1
+PT_BR_DICTIONARY_FILE = 'resources/pt-br.dic'
+PHONEMES_FILE = 'resources/phonemes.csv'
+LETTERS_FILE = 'resources/letters.csv'
+SPLIT = [6,2,2]
+SOW_TOKEN = 0
+EOW_TOKEN = 1
 MAX_LENGTH = 32
-hidden_size = 128
+HIDDEN_SIZE = 128
+TEACHER_FORCING_RATIO = 0.0
