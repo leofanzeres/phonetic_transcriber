@@ -6,7 +6,6 @@ from networks.encoderrnn import EncoderRNN
 from networks.decoderrnn import DecoderRNN
 from dataset import Dataset
 from language import Language
-import utils as ut
 import matplotlib.pyplot as plt
 #plt.switch_backend('agg')
 import matplotlib.ticker as ticker
