@@ -1,0 +1,2 @@
+include resources/*.csv
+include resources/*.dic
