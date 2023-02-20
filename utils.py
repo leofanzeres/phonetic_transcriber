@@ -1,8 +1,8 @@
 import csv
 import torch
 
-def load_dictionary(dict_tsv_file, delimiter, to_list=False, reverse=False, to_int = False):
-    reader = csv.reader(open(dict_tsv_file, mode='r'), delimiter=delimiter)
+def load_data(data_file, delimiter, to_list=False, reverse=False, to_int = False):
+    reader = csv.reader(open(data_file, mode='r'), delimiter=delimiter)
     if to_list:
         dictionary = []
         for row in reader:

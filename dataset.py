@@ -4,23 +4,19 @@ import values as v
 
 class Dataset():
     def __init__(self, pt_br_dictionary_file) -> None:
-        data_dict = ut.load_dictionary(pt_br_dictionary_file,'\t', False)
+        data_dict = ut.load_data(pt_br_dictionary_file,'\t', False)
         shuffled_data = self.shuffle_dict(data_dict)
         self.train_data, self.val_data, self.test_data = self.split_data(shuffled_data, v.SPLIT)
 
-
     def get_train_pairs(self):
         return self.get_pairs(self.train_data)
-    
 
     def get_val_pairs(self):
         return self.get_pairs(self.val_data)
-    
 
     def get_test_pairs(self):
         return self.get_pairs(self.test_data)
     
-
     def get_pairs(self, dictionary):
         dictlist = []
         for key, value in dictionary.items():
@@ -36,7 +32,7 @@ class Dataset():
             shuffled_dict[key] = dictionary[key]
         return shuffled_dict
     
-    
+
     def split_data(self, dictionary, split):
         if sum(split) > 100:
             raise Exception("Sorry, sum of split ratio parts cannot be higher than 100.")

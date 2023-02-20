@@ -1,12 +1,12 @@
 import torch
-from utils import load_dictionary
+import utils as ut
 import values as v
 
 class Language():
     def __init__(self, phonemes_file, letters_file) -> None:
-        self.phonemes = load_dictionary(phonemes_file,',', reverse=True)
+        self.phonemes = ut.load_data(phonemes_file,',', reverse=True)
         self.phonemes_length = len(self.phonemes)
-        self.letters = load_dictionary(letters_file,',', reverse=True)
+        self.letters = ut.load_data(letters_file,',', reverse=True)
         self.letters_length = len(self.letters)
         
     def get_phonemes(self) -> dict:
