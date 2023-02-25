@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from networks.encoderrnn import EncoderRNN
 from networks.decoderrnn import DecoderRNN
+from networks.attentiondecoderrnn import AttnDecoderRNN
 from dataset import Dataset
 from language import Language
 import matplotlib.pyplot as plt
@@ -16,18 +17,22 @@ import random
 import values as v
 
 
-
 def main():
     parser = argparse.ArgumentParser(prog='Train', description='Training of RNNs to perform text-to-phonemes transcription.')
     parser.add_argument("num_iterations", help="Number of training iterations.", type=int)
+    parser.add_argument('--att', default=False, action='store_true')
     args = parser.parse_args()
-    models_save_path = ('models/encoder_rnn.pt', 'models/decoder_rnn.pt')
+    attention = args.att
+    if attention:
+        models_save_path = ('trained_models/encoder_rnn_att.pt', 'trained_models/decoder_rnn_att.pt')
+    else:
+        models_save_path = ('trained_models/encoder_rnn_test.pt', 'trained_models/decoder_rnn_test.pt')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     n_iterations = args.num_iterations
     print_every = n_iterations // 15
-    l_rate = 0.01
+    l_rate = 0.001
 
     transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE)
     train_pairs= transcrip_data.get_train_pairs()
@@ -35,12 +40,17 @@ def main():
     language = Language(v.PHONEMES_FILE, v.LETTERS_FILE)
 
     encoder = EncoderRNN(language.letters_length, v.HIDDEN_SIZE, device).to(device)
-    decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
+    if attention:
+        decoder = AttnDecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device, dropout_p=0.1).to(device)
+    else:
+        decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
 
-    trainIters(train_pairs, language, encoder, decoder, models_save_path, device, n_iters=n_iterations, print_every=print_every, learning_rate=l_rate, save_models=True)
+
+    trainIters(train_pairs, language, encoder, decoder, attention, models_save_path, device, n_iters=n_iterations, print_every=print_every, 
+    learning_rate=l_rate, save_models=True)
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, device, max_length=v.MAX_LENGTH):
+def train(input_tensor, target_tensor, encoder, decoder, attention, encoder_optimizer, decoder_optimizer, criterion, device, max_length=v.MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -67,16 +77,23 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     if use_teacher_forcing:
         # Teacher forcing: Feed the target as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            if attention:
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            else:
+                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            topv, topi = decoder_output.topk(1)
             loss += criterion(decoder_output, target_tensor[di])
-            if decoder_output == target_tensor[di]:
+            if topi.squeeze().detach() == target_tensor[di].squeeze().detach():
                 accuracy += 1
             decoder_input = target_tensor[di]  # Teacher forcing
 
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            if attention:
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            else:
+                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
@@ -94,7 +111,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return (loss.item() / target_length, accuracy / target_length)
 
 
-def trainIters(train_pairs, language, encoder, decoder, models_save_path, device, n_iters=15000, print_every=1000, plot_every=100, learning_rate=0.01, save_models=False):
+def trainIters(train_pairs, language, encoder, decoder, attention, models_save_path, device, n_iters=15000, print_every=1000, plot_every=100, learning_rate=0.01, save_models=False):
     start = time.time()
     print('Train set size: ' + str(len(train_pairs)))
     plot_losses = []
@@ -115,7 +132,7 @@ def trainIters(train_pairs, language, encoder, decoder, models_save_path, device
         target_tensor = training_pair[1]
 
         loss, accuracy = train(input_tensor, target_tensor, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion, device)
+                     decoder, attention, encoder_optimizer, decoder_optimizer, criterion, device)
         
         print_accuracy_total += accuracy
         plot_accuracy_total += accuracy

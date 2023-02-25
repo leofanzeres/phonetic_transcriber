@@ -4,6 +4,7 @@ import random
 import utils as ut
 from networks.encoderrnn import EncoderRNN
 from networks.decoderrnn import DecoderRNN
+from networks.attentiondecoderrnn import AttnDecoderRNN
 from dataset import Dataset
 from language import Language
 import values as v
@@ -13,7 +14,9 @@ def main():
     parser = argparse.ArgumentParser(prog='Evaluate', description='Evaluation of RNN models performing text-to-phonemes transcription.')
     parser.add_argument("encoder_file", help="Encoder file path.", type=str)
     parser.add_argument("decoder_file", help="Decoder file path.", type=str)
+    parser.add_argument('--att', default=False, action='store_true')
     args = parser.parse_args()
+    attention = args.att
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -26,13 +29,16 @@ def main():
     encoder = EncoderRNN(language.letters_length, v.HIDDEN_SIZE, device).to(device)
     encoder.load_state_dict(torch.load(args.encoder_file))
     encoder.eval()
-    decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
+    if attention:
+        decoder = AttnDecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device, dropout_p=0.1).to(device)
+    else:
+        decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
     decoder.load_state_dict(torch.load(args.decoder_file))
     decoder.eval()
 
-    evaluateRandomly(val_pairs, language, encoder, decoder, device, len(val_pairs))
+    evaluateRandomly(val_pairs, language, encoder, decoder, attention, device, len(val_pairs))
  
-def evaluate(language, encoder, decoder, device, word, max_length=v.MAX_LENGTH):
+def evaluate(language, encoder, decoder, attention, device, word, max_length=v.MAX_LENGTH):
     with torch.no_grad():
         input_tensor = language.tensorFromWord(word, device, language)
         input_length = input_tensor.size()[0]
@@ -53,8 +59,11 @@ def evaluate(language, encoder, decoder, device, word, max_length=v.MAX_LENGTH):
         decoder_attentions = torch.zeros(max_length, max_length)
 
         for di in range(max_length):
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden) # attention
+            if attention:
+                decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+                decoder_attentions[di] = decoder_attention.data
+            else:
+                decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == v.EOW_TOKEN:
                 decoded_phonemes.append('<EOW>')
@@ -66,12 +75,12 @@ def evaluate(language, encoder, decoder, device, word, max_length=v.MAX_LENGTH):
 
         return decoded_phonemes, decoder_attentions[:di + 1]
 
-def evaluateRandomly(eval_pairs, language, encoder, decoder, device, n=10):
+def evaluateRandomly(eval_pairs, language, encoder, decoder, attention, device, n=10):
     for i in range(n):
         pair = random.choice(eval_pairs)
         print('>', pair[0])
         print('=', pair[1])
-        output_phonemes, attentions = evaluate(language, encoder, decoder, device, pair[0])
+        output_phonemes, attentions = evaluate(language, encoder, decoder, attention, device, pair[0])
         output_phonemes = ' '.join(output_phonemes)
         print('<', output_phonemes)
         print('')
