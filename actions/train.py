@@ -32,7 +32,7 @@ def main():
 
     n_iterations = args.num_iterations
     print_every = n_iterations // 15
-    l_rate = 0.001
+    l_rate = 0.001 if attention else 0.01
 
     transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE)
     train_pairs= transcrip_data.get_train_pairs()
