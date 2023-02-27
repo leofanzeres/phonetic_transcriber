@@ -15,13 +15,6 @@ class Language():
     def get_letters(self) -> dict:
         return self.letters
 
-    def phonemes_length(self):
-        return self.phonemes_length
-
-    def letters_length(self):
-        return self.letters_length
-
-
     def indexesFromWord(self, word, language, letter=True):
         if letter:
             indexes = []

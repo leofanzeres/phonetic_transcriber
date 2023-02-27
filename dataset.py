@@ -7,6 +7,9 @@ class Dataset():
         data_dict = ut.load_data(pt_br_dictionary_file,'\t', to_list=False, item_addition_ratio=item_addition_ratio)
         shuffled_data = self.shuffle_dict(data_dict)
         self.train_data, self.val_data, self.test_data = self.split_data(shuffled_data, v.SPLIT)
+        self.train_data_length = len(self.train_data)
+        self.val_data_length = len(self.val_data)
+        self.test_data_length = len(self.test_data)
 
     def get_train_pairs(self):
         return self.get_pairs(self.train_data)
