@@ -28,20 +28,21 @@ def main():
     # Load models
     encoder = EncoderRNN(language.letters_length, v.HIDDEN_SIZE, device).to(device)
     encoder.load_state_dict(torch.load(args.encoder_file))
-    encoder.eval()
     if attention:
         decoder = AttnDecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device, dropout_p=0.1).to(device)
     else:
         decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
     decoder.load_state_dict(torch.load(args.decoder_file))
-    decoder.eval()
 
-    evaluateRandomly(val_pairs, language, encoder, decoder, attention, device, len(val_pairs))
+    evaluateRandomly(val_pairs, language, encoder, decoder, attention, device, True, len(val_pairs))
  
 def evaluate(language, encoder, decoder, attention, device, word, max_length=v.MAX_LENGTH):
+    encoder.eval()
+    decoder.eval()
     with torch.no_grad():
-        input_tensor = language.tensorFromWord(word, device, language)
+        input_tensor, target_tensor = language.tensorsFromPair(word, device, language)
         input_length = input_tensor.size()[0]
+        target_length = target_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
         index2phoneme = ut.get_swap_dict(language.get_phonemes())
 
@@ -57,7 +58,7 @@ def evaluate(language, encoder, decoder, attention, device, word, max_length=v.M
 
         decoded_phonemes = []
         decoder_attentions = torch.zeros(max_length, max_length)
-
+        accuracy = 0
         for di in range(max_length):
             if attention:
                 decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
@@ -65,6 +66,8 @@ def evaluate(language, encoder, decoder, attention, device, word, max_length=v.M
             else:
                 decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.data.topk(1)
+            if di < target_length and topi.squeeze().detach() == target_tensor[di].squeeze().detach():
+                accuracy += 1
             if topi.item() == v.EOW_TOKEN:
                 decoded_phonemes.append('<EOW>')
                 break
@@ -73,18 +76,27 @@ def evaluate(language, encoder, decoder, attention, device, word, max_length=v.M
 
             decoder_input = topi.squeeze().detach()
 
-        return decoded_phonemes, decoder_attentions[:di + 1]
+        return decoded_phonemes, decoder_attentions[:di + 1], accuracy / target_length
 
-def evaluateRandomly(eval_pairs, language, encoder, decoder, attention, device, n=10):
+def evaluateRandomly(eval_pairs, language, encoder, decoder, attention, device, print_res=False, n=10):
+    accuracy_total = 0
+    random.shuffle(eval_pairs)
     for i in range(n):
-        pair = random.choice(eval_pairs)
-        print('>', pair[0])
-        print('=', pair[1])
-        output_phonemes, attentions = evaluate(language, encoder, decoder, attention, device, pair[0])
-        output_phonemes = ' '.join(output_phonemes)
-        print('<', output_phonemes)
-        print('')
-
+        pair = eval_pairs[i]
+        if print_res:
+            print('>', pair[0])
+            print('=', pair[1])
+        output_phonemes, attentions, accuracy = evaluate(language, encoder, decoder, attention, device, pair)
+        if print_res:
+            output_phonemes = ' '.join(output_phonemes)
+            print('<', output_phonemes)
+            print('')
+        accuracy_total += accuracy
+    accuracy_avg = accuracy_total / n
+    if print_res:
+        print('Test set size: %d' % (n))
+        print('Accuracy: %.2f' % (accuracy_avg * 100))
+    return accuracy_avg
 
 if __name__ == "__main__":
     main()

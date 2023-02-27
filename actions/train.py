@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from networks.encoderrnn import EncoderRNN
 from networks.decoderrnn import DecoderRNN
 from networks.attentiondecoderrnn import AttnDecoderRNN
+from actions.evaluate import evaluateRandomly, evaluate
 from dataset import Dataset
 from language import Language
 import matplotlib.pyplot as plt
@@ -14,28 +15,28 @@ import numpy as np
 import time
 import math
 import random
+import csv
 import values as v
 
 
 def main():
     parser = argparse.ArgumentParser(prog='Train', description='Training of RNNs to perform text-to-phonemes transcription.')
-    parser.add_argument("num_iterations", help="Number of training iterations.", type=int)
+    parser.add_argument("num_epochs", help="Number of training iterations.", type=int)
     parser.add_argument('--att', default=False, action='store_true')
     args = parser.parse_args()
     attention = args.att
     if attention:
-        models_save_path = ('trained_models/encoder_rnn_att.pt', 'trained_models/decoder_rnn_att.pt')
+        training_save_path = ('trained_models/encoder_rnn_att.pt', 'trained_models/decoder_rnn_att.pt', 'trained_models/training_evaluation_att_history.csv')
     else:
-        models_save_path = ('trained_models/encoder_rnn_test.pt', 'trained_models/decoder_rnn_test.pt')
+        training_save_path = ('trained_models/encoder_rnn_test.pt', 'trained_models/decoder_rnn_test.pt', 'trained_models/training_evaluation_history.csv')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    n_iterations = args.num_iterations
-    print_every = n_iterations // 15
+    num_epochs = args.num_epochs
     l_rate = 0.001 if attention else 0.01
 
     transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE)
-    train_pairs= transcrip_data.get_train_pairs()
+    train_set_size = transcrip_data.train_data_length
 
     language = Language(v.PHONEMES_FILE, v.LETTERS_FILE)
 
@@ -45,12 +46,16 @@ def main():
     else:
         decoder = DecoderRNN(v.HIDDEN_SIZE, language.phonemes_length, device).to(device)
 
+    
 
-    trainIters(train_pairs, language, encoder, decoder, attention, models_save_path, device, n_iters=n_iterations, print_every=print_every, 
-    learning_rate=l_rate, save_models=True)
+    trainIters(transcrip_data, language, encoder, decoder, attention, training_save_path, device, n_epochs=num_epochs, 
+    plot_every=train_set_size, learning_rate=l_rate, save_models_bool=True)
 
 
 def train(input_tensor, target_tensor, encoder, decoder, attention, encoder_optimizer, decoder_optimizer, criterion, device, max_length=v.MAX_LENGTH):
+    encoder.train()
+    decoder.train()
+    
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -111,19 +116,32 @@ def train(input_tensor, target_tensor, encoder, decoder, attention, encoder_opti
     return (loss.item() / target_length, accuracy / target_length)
 
 
-def trainIters(train_pairs, language, encoder, decoder, attention, models_save_path, device, n_iters=15000, print_every=1000, plot_every=100, learning_rate=0.01, save_models=False):
+def trainIters(transcrip_data, language, encoder, decoder, attention, training_save_path, device, n_epochs=15, plot_every=100, 
+               learning_rate=0.01, save_models_bool=False):
     start = time.time()
-    print('Train set size: ' + str(len(train_pairs)))
+    MIN_ACCURACY = 0.98
+    train_pairs = transcrip_data.get_train_pairs()
+    val_pairs = transcrip_data.get_val_pairs()
+    train_set_size = len(train_pairs)
+    print('Train set size: ' + str(train_set_size))
+    n_iters = train_set_size * n_epochs
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     print_accuracy_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
     plot_accuracy_total = 0  # Reset every plot_every
+    csv_row = ()
+    csv_str = []
 
     encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [language.tensorsFromPair(random.choice(train_pairs), device, language)
-                      for i in range(n_iters)]
+    
+    training_pairs = []
+    for i in range(n_epochs):
+        random.shuffle(train_pairs)
+        for i in range(len(train_pairs)):
+            training_pairs.append(language.tensorsFromPair(train_pairs[i], device, language))
+
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -139,33 +157,53 @@ def trainIters(train_pairs, language, encoder, decoder, attention, models_save_p
         print_loss_total += loss
         plot_loss_total += loss
 
-        if iter % print_every == 0:
-            print_accuracy_avg = print_accuracy_total / print_every
+        if iter % train_set_size == 0: # Prints result every epoch
+            print_accuracy_avg = print_accuracy_total / train_set_size
             print_accuracy_total = 0
-            print_loss_avg = print_loss_total / print_every
+            print_loss_avg = print_loss_total / train_set_size
             print_loss_total = 0
-            print('(%d %d%%) %.4f %.2f' % (iter, iter / n_iters * 100, print_loss_avg, print_accuracy_avg))
+            print('(%d %d%%) Avg loss: %.4f, Accuracy: %.2f%%' % (iter, iter / n_iters * 100, print_loss_avg, print_accuracy_avg * 100))
 
         if iter % plot_every == 0:
             plot_loss_avg = plot_loss_total / plot_every
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
-
-    if save_models:
-        torch.save(encoder.state_dict(), models_save_path[0])
-        torch.save(decoder.state_dict(), models_save_path[1])
+            plot_accuracy_avg = plot_accuracy_total / plot_every
+            plot_accuracy_total = 0
+            eval_accuracy = evaluateRandomly(val_pairs,language, encoder, decoder, attention, device)
+            if save_models_bool:
+                csv_row = (round(plot_loss_avg,8), round(plot_accuracy_avg * 100,8), round(eval_accuracy * 100,8))
+                csv_str.append(csv_row)
+                count = int(iter / plot_every)
+                if plot_accuracy_avg > MIN_ACCURACY: save_models(encoder, decoder, training_save_path, count)
+    
+    if save_models_bool:
+        with open(training_save_path[2], 'w', newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerows(csv_str)
+        save_models(encoder, decoder, training_save_path)        
 
     showPlot(plot_losses)
 
 
 def showPlot(points):
-    plt.figure()
+    #plt.figure()
     fig, ax = plt.subplots()
     # this locator puts ticks at regular intervals
     loc = ticker.MultipleLocator(base=0.2)
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
     plt.show()
+
+def save_models(encoder, decoder, training_save_path, epoch=-1):
+    if epoch < 0:
+        torch.save(encoder.state_dict(), training_save_path[0])
+        torch.save(decoder.state_dict(), training_save_path[1])
+    else:
+        encoder_path = training_save_path[0].split('.')[0] + '_' + str(epoch) + '.pt'
+        decoder_path = training_save_path[1].split('.')[0] + '_' + str(epoch) + '.pt'
+        torch.save(encoder.state_dict(), encoder_path)
+        torch.save(decoder.state_dict(), decoder_path)
 
 
 if __name__ == "__main__":
