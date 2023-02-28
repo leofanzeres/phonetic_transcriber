@@ -3,10 +3,10 @@ import utils as ut
 import values as v
 
 class Dataset():
-    def __init__(self, pt_br_dictionary_file, item_addition_ratio=1.0) -> None:
+    def __init__(self, pt_br_dictionary_file, split, item_addition_ratio=1.0) -> None:
         data_dict = ut.load_data(pt_br_dictionary_file,'\t', to_list=False, item_addition_ratio=item_addition_ratio)
         shuffled_data = self.shuffle_dict(data_dict)
-        self.train_data, self.val_data, self.test_data = self.split_data(shuffled_data, v.SPLIT)
+        self.train_data, self.val_data, self.test_data = self.split_data(shuffled_data, split)
         self.train_data_length = len(self.train_data)
         self.val_data_length = len(self.val_data)
         self.test_data_length = len(self.test_data)

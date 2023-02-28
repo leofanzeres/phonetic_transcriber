@@ -6,7 +6,7 @@ import utils as ut
 
 @pytest.fixture
 def t_dataset():
-    dataset = Dataset(v.PT_BR_DICTIONARY_FILE, item_addition_ratio=0.1)
+    dataset = Dataset(v.PT_BR_DICTIONARY_FILE, v.SPLIT, item_addition_ratio=0.1)
     return dataset
 
 @pytest.fixture
