@@ -11,6 +11,7 @@ from language import Language
 import matplotlib.pyplot as plt
 #plt.switch_backend('agg')
 import matplotlib.ticker as ticker
+import logging
 import numpy as np
 import time
 import math
@@ -21,22 +22,27 @@ import values as v
 
 def main():
     parser = argparse.ArgumentParser(prog='Train', description='Training of RNNs to perform text-to-phonemes transcription.')
-    parser.add_argument("num_epochs", help="Number of training iterations.", type=int)
-    parser.add_argument('--att', default=False, action='store_true')
+    parser.add_argument("num_epochs", type=int, help="Number of training iterations.")
+    parser.add_argument('--att', default=False, action='store_true', help="Whether to use an attention decoder or a plain RNN decoder.")
     args = parser.parse_args()
     attention = args.att
     if attention:
-        training_save_path = ('trained_models/encoder_rnn_att.pt', 'trained_models/decoder_rnn_att.pt', 'trained_models/training_evaluation_att_history.csv')
+        training_save_path = ('trained_models/encoder_rnn_att.pt', 'trained_models/decoder_rnn_att.pt', 
+                              'trained_models/training_evaluation_att_history.csv')
     else:
-        training_save_path = ('trained_models/encoder_rnn_test.pt', 'trained_models/decoder_rnn_test.pt', 'trained_models/training_evaluation_history.csv')
+        training_save_path = ('trained_models/encoder_rnn.pt', 'trained_models/decoder_rnn.pt', 
+                              'trained_models/training_evaluation_history.csv')
 
+    logging.basicConfig(format='[%(asctime)s][%(levelname)s] %(message)s', level=logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info("Device: %s", device.type)
 
     num_epochs = args.num_epochs
     l_rate = 0.001 if attention else 0.01
 
-    transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE)
+    transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE, v.SPLIT)
     train_set_size = transcrip_data.train_data_length
+    logging.info("Split: %s", v.SPLIT)
 
     language = Language(v.PHONEMES_FILE, v.LETTERS_FILE)
 
@@ -52,7 +58,8 @@ def main():
     plot_every=train_set_size, learning_rate=l_rate, save_models_bool=True)
 
 
-def train(input_tensor, target_tensor, encoder, decoder, attention, encoder_optimizer, decoder_optimizer, criterion, device, max_length=v.MAX_LENGTH):
+def train(input_tensor, target_tensor, encoder, decoder, attention, encoder_optimizer, decoder_optimizer, criterion, 
+          device, max_length=v.MAX_LENGTH):
     encoder.train()
     decoder.train()
     
@@ -123,7 +130,7 @@ def trainIters(transcrip_data, language, encoder, decoder, attention, training_s
     train_pairs = transcrip_data.get_train_pairs()
     val_pairs = transcrip_data.get_val_pairs()
     train_set_size = len(train_pairs)
-    print('Train set size: ' + str(train_set_size))
+    logging.info('Train set size: %d', train_set_size)
     n_iters = train_set_size * n_epochs
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -162,7 +169,7 @@ def trainIters(transcrip_data, language, encoder, decoder, attention, training_s
             print_accuracy_total = 0
             print_loss_avg = print_loss_total / train_set_size
             print_loss_total = 0
-            print('(%d %d%%) Avg loss: %.4f, Accuracy: %.2f%%' % (iter, iter / n_iters * 100, print_loss_avg, print_accuracy_avg * 100))
+            logging.info('(%d %d%%) Avg loss: %.4f, Accuracy: %.2f%%' % (iter, iter / n_iters * 100, print_loss_avg, print_accuracy_avg * 100))
 
         if iter % plot_every == 0:
             plot_loss_avg = plot_loss_total / plot_every

@@ -2,6 +2,7 @@ import argparse
 import torch
 import random
 import utils as ut
+import logging
 from networks.encoderrnn import EncoderRNN
 from networks.decoderrnn import DecoderRNN
 from networks.attentiondecoderrnn import AttnDecoderRNN
@@ -18,9 +19,10 @@ def main():
     args = parser.parse_args()
     attention = args.att
 
+    logging.basicConfig(format='[%(asctime)s][%(levelname)s] %(message)s', level=logging.INFO)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE)
+    transcrip_data = Dataset(v.PT_BR_DICTIONARY_FILE, v.SPLIT)
     val_pairs = transcrip_data.get_val_pairs()
 
     language = Language(v.PHONEMES_FILE, v.LETTERS_FILE)
@@ -94,8 +96,10 @@ def evaluateRandomly(eval_pairs, language, encoder, decoder, attention, device, 
         accuracy_total += accuracy
     accuracy_avg = accuracy_total / n
     if print_res:
-        print('Test set size: %d' % (n))
-        print('Accuracy: %.2f' % (accuracy_avg * 100))
+        #print('Test set size: %d' % (n))
+        logging.info('Test set size: %d' % (n))
+        #print('Accuracy: %.2f' % (accuracy_avg * 100))
+        logging.info('Accuracy: %.2f' % (accuracy_avg * 100))
     return accuracy_avg
 
 if __name__ == "__main__":
