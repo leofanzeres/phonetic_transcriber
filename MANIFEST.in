@@ -1,2 +1,7 @@
-include resources/*.csv
-include resources/*.dic
+include resources/letters.csv
+include resources/phonemes.csv
+include resources/pt-br.dic
+include trained_models/encoder_rnn.pt
+include trained_models/decoder_rnn.pt
+include trained_models/encoder_rnn_att.pt
+include trained_models/decoder_rnn_att.pt
