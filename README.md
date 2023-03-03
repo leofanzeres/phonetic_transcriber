@@ -1,6 +1,6 @@
 # phonetic_transcriber
 
-The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation. The transcriber is based on Recurrent Neural Networks (RNNs).
+The phonetic transcriber is a tool for converting a text to its representation in phonemes. The transcriber is based on Recurrent Neural Networks (RNNs).
 
 ## Models Accuracy 
 
