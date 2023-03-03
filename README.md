@@ -1,12 +1,6 @@
 # phonetic_transcriber
 
-The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation.
-
-![RNN Encoder + Attention RNN Decoder](plots/Training_Evaluation_Accuracy.png)
-Training and Evaluation Obtained Accuracy
-</br></br>
-
-The tool uses Recurrent Neural Networks (RNNs) and currently provides two features:
+The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation. The tool uses Recurrent Neural Networks (RNNs) and currently provides two features:
 1. Train models: ```actions/train.py```
 
     Launch the training of the phonetic transcriber using RNNs  
@@ -31,7 +25,12 @@ The tool uses Recurrent Neural Networks (RNNs) and currently provides two featur
     python actions/evaluate.py <encoder_model_path> <decoder_model_path> --att
     ```
 
-### Display available option:
+## Models Accuracy 
+
+![Models Accuracy](plots/Training_Evaluation_Accuracy.png)
+Accuracy obtained from train set and evaluation set during models training.
+</br></br>
+## Display available option:
 ```
 python3 actions/train.py --help
 
@@ -52,7 +51,7 @@ Since we use relative paths for modules, you will need to set PYTHONPATH environ
 export PYTHONPATH="${PYTHONPATH}:/path/to/repository/"
 ```
 
-### Requirements (tested versions)
+## Requirements (tested versions)
 pytest 7.2.1  
 torch 1.13.1  
 numpy 1.24.2  
