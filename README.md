@@ -2,8 +2,8 @@
 
 The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation.
 
-<img src="plots/RNNEncoder_RNNDecoder.png" width="49%" height="49%" style="max-width:50%;" />
-<img src="plots/RNNEncoder_AttentionRNNDecoder.png" width="49%" height="49%" style="max-width:50%;" />
+<img src="plots/RNNEncoder_RNNDecoder.png" width="49%" height="49%" align="left" />
+<img src="plots/RNNEncoder_AttentionRNNDecoder.png" width="49%" height="49%" />
 Training and Evaluation Obtained Accuracy
 </br></br>
 
