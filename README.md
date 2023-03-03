@@ -1,6 +1,13 @@
 # phonetic_transcriber
 
-The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation. The tool uses Recurrent Neural Networks (RNNs) and currently provides two features:
+The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation.
+
+<img src="plots/RNNEncoder_RNNDecoder.png" width="49%" height="49%" />
+<img src="plots/RNNEncoder_AttentionRNNDecoder.png" width="49%" height="49%" />
+Training and Evaluation Obtained Accuracy
+</br></br>
+
+The tool uses Recurrent Neural Networks (RNNs) and currently provides two features:
 1. Train models: ```actions/train.py```
 
     Launch the training of the phonetic transcriber using RNNs  
