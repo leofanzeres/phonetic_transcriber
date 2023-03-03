@@ -1,6 +1,21 @@
 # phonetic_transcriber
 
-The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation. The tool uses Recurrent Neural Networks (RNNs) and currently provides two features:
+The phonetic transcriber is a tool for converting the letter representation of a word to a phoneme representation. The transcriber is based on Recurrent Neural Networks (RNNs).
+
+## Models Accuracy 
+
+![Models Accuracy](plots/Training_Evaluation_Accuracy.png)
+Accuracy obtained from train and evaluation sets during models training.
+</br></br>
+
+## Usage
+
+Since we use relative paths for modules, you will need to set PYTHONPATH environment variable:
+```
+export PYTHONPATH="${PYTHONPATH}:/path/to/repository/"
+```
+
+The tool currently provides two features:
 1. Train models: ```actions/train.py```
 
     Launch the training of the phonetic transcriber using RNNs  
@@ -25,11 +40,6 @@ The phonetic transcriber is a tool for converting the letter representation of a
     python actions/evaluate.py <encoder_model_path> <decoder_model_path> --att
     ```
 
-## Models Accuracy 
-
-![Models Accuracy](plots/Training_Evaluation_Accuracy.png)
-Accuracy obtained from train set and evaluation set during models training.
-</br></br>
 ## Display available option:
 ```
 python3 actions/train.py --help
@@ -44,11 +54,6 @@ positional arguments:
 options:
   -h, --help  show this help message and exit
   --att       Whether to use an attention decoder or a plain RNN decoder.
-```
-
-Since we use relative paths for modules, you will need to set PYTHONPATH environment variable:
-```
-export PYTHONPATH="${PYTHONPATH}:/path/to/repository/"
 ```
 
 ## Requirements (tested versions)
